@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Background Remover</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #666;
+        }
+        .image-preview {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            gap: 20px;
+        }
+        .preview-box {
+            flex: 1;
+            text-align: center;
+        }
+        .preview-box img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .loading {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Image Background Remover</h1>
+
+        <div class="upload-area" id="dropZone">
+            <p>Drop your image here or click to select</p>
+            <input type="file" id="fileInput" accept="image/*" style="display: none">
+        </div>
+
+        <div class="image-preview">
+            <div class="preview-box">
+                <h3>Original Image</h3>
+                <img id="originalPreview" src="/api/placeholder/400/300" alt="Original preview">
+            </div>
+            <div class="preview-box">
+                <h3>Processed Image</h3>
+                <img id="processedPreview" src="/api/placeholder/400/300" alt="Processed preview">
+            </div>
+        </div>
+
+
+        <div style="text-align: center; margin-top: 20px;">
+            <button id="processButton" disabled>Remove Background</button>
+        </div>
+
+        <div id="loading" class="loading">
+            Processing image... Please wait...
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const originalPreview = document.getElementById('originalPreview');
+        const processedPreview = document.getElementById('processedPreview');
+        const processButton = document.getElementById('processButton');
+        const loading = document.getElementById('loading');
+
+        // Handle file selection
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        // Handle drag and drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#007bff';
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = '#ccc';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#ccc';
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                handleFile(file);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        });
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                originalPreview.src = e.target.result;
+                processButton.disabled = false;
+                processedPreview.src = '/api/placeholder/400/300';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        processButton.addEventListener('click', async () => {
+            const file = fileInput.files[0] || new File([await fetch(originalPreview.src).then(r => r.blob())], 'image.jpg');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            processButton.disabled = true;
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/remove-background/', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    processedPreview.src = URL.createObjectURL(blob);
+                } else {
+                    alert('Error processing image. Please try again.');
+                }
+            } catch (error) {
+                alert('Error connecting to the server. Please ensure the backend is running.');
+                console.error('Error:', error);
+            } finally {
+                processButton.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+
+    </script>
+</body>
+</html>
